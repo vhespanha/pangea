@@ -9,13 +9,10 @@ export class Pangea {
 
   buildRouter(): Hono {
     const router = new Hono();
-
     router.get("/_pangea/islands/:name{.+\.js}", (c) => {
       return c.text("TODO");
     });
-
     router.route("/", this.app);
-
     return router;
   }
 
