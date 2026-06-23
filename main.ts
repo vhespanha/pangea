@@ -1,5 +1,5 @@
+import { Pangea } from "@/pangea.ts";
 import { parseArgs } from "@std/cli";
-import { printf } from "@std/fmt/printf";
 import { Hono } from "hono";
 
 async function getHonoApp(entryPointPath: string): Promise<Hono> {
@@ -29,10 +29,9 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  printf("Hello, Pangea!\n");
-  printf("Entry point app is valid!\n");
+  const pangea = new Pangea(app);
 
-  Deno.serve(app.fetch);
+  pangea.serve();
 }
 
 if (import.meta.main) main();
