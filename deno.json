@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/denoland/deno/refs/heads/main/cli/schemas/config-file.v1.json",
+  "name": "pangea",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": "./mod.ts",
+  "imports": {
+    "@/": "./",
+    "@std/fmt": "jsr:@std/fmt@^1.0.10",
+    "hono": "jsr:@hono/hono@^4.12.24"
+  },
+  "lint": {
+    "rules": { "tags": ["jsr", "recommended", "workspace"] }
+  }
+}
