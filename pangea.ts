@@ -1,4 +1,4 @@
-import type { Hono } from "hono";
+import { Hono } from "hono";
 
 export class Pangea {
   private app: Hono;
@@ -7,7 +7,19 @@ export class Pangea {
     this.app = app;
   }
 
+  buildRouter(): Hono {
+    const router = new Hono();
+
+    router.get("/_pangea/islands/:name{.+\.js}", (c) => {
+      return c.text("TODO");
+    });
+
+    router.route("/", this.app);
+
+    return router;
+  }
+
   serve() {
-    Deno.serve(this.app.fetch);
+    Deno.serve(this.buildRouter().fetch);
   }
 }
