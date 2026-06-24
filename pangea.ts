@@ -6,20 +6,28 @@ import { Hono } from "hono";
 const CACHE_SIZE = 50;
 const EXTENSIONS = new Set([".tsx", ".jsx", ".ts", ".js"]);
 
-function syntheticEntry(name: string, srcUrl: string): string {
+interface IslandEntry {
+  srcPath: string;
+  exportName: string;
+}
+
+function syntheticEntry(name: string, srcUrl: string, exportName: string): string {
+  const importStmt = exportName === "default"
+    ? `import ${name} from "${srcUrl}";`
+    : `import { ${exportName} } from "${srcUrl}";`;
   return [
-    `import Foo from "${srcUrl}";`,
+    importStmt,
     `import { createElement, render } from "@hono/hono/jsx/dom";`,
     `document.querySelectorAll('[data-island][data-name="${name}"]').forEach((el) => {`,
-    `  render(createElement(Foo, JSON.parse(el.getAttribute("data-props") ?? "{}")), el);`,
+    `  render(createElement(${name}, JSON.parse(el.getAttribute("data-props") ?? "{}")), el);`,
     `});`,
   ].join("\n");
 }
 
-async function doBundle(name: string, srcUrl: string): Promise<Uint8Array> {
+async function doBundle(name: string, srcUrl: string, exportName: string): Promise<Uint8Array> {
   const tmp = await Deno.makeTempFile({ suffix: ".js" });
   try {
-    await Deno.writeTextFile(tmp, syntheticEntry(name, srcUrl));
+    await Deno.writeTextFile(tmp, syntheticEntry(name, srcUrl, exportName));
     const result = await Deno.bundle([tmp], {
       platform: "browser",
       write: false,
@@ -34,7 +42,8 @@ async function doBundle(name: string, srcUrl: string): Promise<Uint8Array> {
 
 export class Pangea {
   private app: Hono;
-  private paths = new Map<string, string>();
+  private registry = new Map<string, IslandEntry>(); // PascalCase → entry
+  private slugIndex = new Map<string, string>();      // slug → PascalCase
   private cache = new LruCache<string, Uint8Array>(CACHE_SIZE);
   private fsWatcher?: Deno.FsWatcher;
 
@@ -42,8 +51,9 @@ export class Pangea {
     this.app = app;
   }
 
-  registerIsland(name: string, srcPath: string): void {
-    this.paths.set(name, srcPath);
+  registerIsland(name: string, srcPath: string, exportName: string = "default"): void {
+    this.registry.set(name, { srcPath, exportName });
+    this.slugIndex.set(slugify(name), name);
     this.cache.delete(name);
   }
 
@@ -52,7 +62,7 @@ export class Pangea {
   }
 
   hasIsland(name: string): boolean {
-    return this.paths.has(name);
+    return this.registry.has(name);
   }
 
   async startIslandWatcher(islandsDir: string): Promise<void> {
@@ -78,11 +88,8 @@ export class Pangea {
         if (!entry.isFile) continue;
         const ext = extname(entry.name);
         if (!EXTENSIONS.has(ext)) continue;
-        const stem = basename(entry.name, ext);
-        this.registerIsland(
-          slugify(stem),
-          join(islandsDir, entry.name),
-        );
+        const name = basename(entry.name, ext);
+        this.registerIsland(name, join(islandsDir, entry.name));
       }
     } catch (err) {
       if (!(err instanceof Deno.errors.NotFound)) throw err;
@@ -95,9 +102,10 @@ export class Pangea {
       for (const p of event.paths) {
         const ext = extname(p);
         if (!EXTENSIONS.has(ext)) continue;
-        const name = slugify(basename(p, ext));
+        const name = basename(p, ext);
         if (event.kind === "remove") {
-          this.paths.delete(name);
+          this.registry.delete(name);
+          this.slugIndex.delete(slugify(name));
           this.cache.delete(name);
         } else if (event.kind === "create" || event.kind === "rename") {
           this.registerIsland(name, p);
@@ -111,8 +119,8 @@ export class Pangea {
   private async getBundle(name: string): Promise<Uint8Array> {
     const hit = this.cache.get(name);
     if (hit) return hit;
-    const path = this.paths.get(name)!;
-    const js = await doBundle(name, path);
+    const entry = this.registry.get(name)!;
+    const js = await doBundle(name, entry.srcPath, entry.exportName);
     this.cache.set(name, js);
     return js;
   }
@@ -120,8 +128,9 @@ export class Pangea {
   buildRouter(): Hono {
     const router = new Hono();
     router.get("/_pangea/islands/:name{.+\.js}", async (c) => {
-      const name = c.req.param("name").replace(/\.js$/, "");
-      if (!this.paths.has(name)) return c.body(null, 404);
+      const slug = c.req.param("name").replace(/\.js$/, "");
+      const name = this.slugIndex.get(slug);
+      if (!name) return c.body(null, 404);
       try {
         const js = await this.getBundle(name);
         c.header("Content-Type", "text/javascript; charset=utf-8");

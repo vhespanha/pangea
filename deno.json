@@ -11,6 +11,7 @@
     "@std/path": "jsr:@std/path@^1.1.5",
     "hono": "jsr:@hono/hono@^4.12.24"
   },
+  "fmt": { "exclude": ["SPEC.md"] },
   "lint": {
     "rules": { "tags": ["jsr", "recommended", "workspace"] }
   }

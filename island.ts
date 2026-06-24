@@ -9,8 +9,8 @@ function getIslandName(c: ReactElement): string {
 }
 
 export function islandify(c: ReactElement) {
-  const islandName = slugify(getIslandName(c));
-  if (!islandName) {
+  const name = getIslandName(c);
+  if (!name) {
     throw new Error("Island component needs name.");
   }
   let islandProps: string;
@@ -19,9 +19,9 @@ export function islandify(c: ReactElement) {
   } catch {
     throw new Error("Island props must be JSON-serializable.");
   }
-  const islandUrl = `/_pangea/islands/${islandName}.js`;
+  const islandUrl = `/_pangea/islands/${slugify(name)}.js`;
   return html`
-    <div data-island data-name="${islandName}" data-props="${islandProps}">
+    <div data-island data-name="${name}" data-props="${islandProps}">
       <script type="module" src="${islandUrl}"></script>
     </div>
   `;
