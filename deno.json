@@ -6,7 +6,9 @@
   "exports": "./mod.ts",
   "imports": {
     "@/": "./",
+    "@std/cache": "jsr:@std/cache@^0.2.3",
     "@std/cli": "jsr:@std/cli@^1.0.30",
+    "@std/path": "jsr:@std/path@^1.1.5",
     "hono": "jsr:@hono/hono@^4.12.24"
   },
   "lint": {

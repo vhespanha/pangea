@@ -8,7 +8,7 @@ function getIslandName(c: ReactElement): string {
   return component.displayName ?? component.name ?? "";
 }
 
-export function island(c: ReactElement) {
+export function islandify(c: ReactElement) {
   const islandName = slugify(getIslandName(c));
   if (!islandName) {
     throw new Error("Island component needs name.");
