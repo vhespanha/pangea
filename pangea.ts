@@ -20,14 +20,13 @@ async function doBundle(name: string, srcUrl: string): Promise<Uint8Array> {
   const tmp = await Deno.makeTempFile({ suffix: ".js" });
   try {
     await Deno.writeTextFile(tmp, syntheticEntry(name, srcUrl));
-    const result = await Deno.bundle({
-      entrypoints: [tmp],
+    const result = await Deno.bundle([tmp], {
       platform: "browser",
       write: false,
     });
-    const js = result.outputFiles?.[0]?.contents;
-    if (!js) throw new Error(`Bundle produced no output for island "${name}"`);
-    return js;
+    const text = result.outputFiles?.[0]?.text();
+    if (!text) throw new Error(`Bundle produced no output for island "${name}"`);
+    return new TextEncoder().encode(text);
   } finally {
     await Deno.remove(tmp).catch(() => {});
   }
@@ -121,7 +120,7 @@ export class Pangea {
   buildRouter(): Hono {
     const router = new Hono();
     router.get("/_pangea/islands/:name{.+\.js}", async (c) => {
-      const name = c.req.param("name") as string;
+      const name = c.req.param("name").replace(/\.js$/, "");
       if (!this.paths.has(name)) return c.body(null, 404);
       try {
         const js = await this.getBundle(name);
